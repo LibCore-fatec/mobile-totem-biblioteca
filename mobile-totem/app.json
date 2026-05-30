@@ -38,6 +38,12 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "O totem precisa de acesso à câmera para realizar o reconhecimento facial do aluno."
+        }
       ]
     ],
     "experiments": {

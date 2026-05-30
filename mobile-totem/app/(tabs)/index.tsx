@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 
 type TotemStep = 'home' | 'face' | 'rfid' | 'confirmation';
+type Operation = 'loan' | 'return';
 type IconName = keyof typeof MaterialCommunityIcons.glyphMap;
 
 const cps = {
@@ -32,18 +33,19 @@ const mainOptions: {
   title: string;
   description: string;
   icon: IconName;
-  action?: TotemStep;
+  action?: Operation;
 }[] = [
   {
     title: 'Empréstimo',
     description: 'Identifique-se e registre a saída do livro.',
     icon: 'book-arrow-right-outline',
-    action: 'face',
+    action: 'loan',
   },
   {
     title: 'Devolução',
     description: 'Registre a entrega de um livro emprestado.',
     icon: 'book-arrow-left-outline',
+    action: 'return',
   },
   {
     title: 'Consulta e mapa',
@@ -72,6 +74,7 @@ const book = {
 
 export default function HomeScreen() {
   const [step, setStep] = useState<TotemStep>('home');
+  const [operation, setOperation] = useState<Operation>('loan');
 
   const currentProgress = useMemo(() => {
     if (step === 'face') return 1;
@@ -87,9 +90,15 @@ export default function HomeScreen() {
         <Header step={step} onHome={() => setStep('home')} />
 
         {step === 'home' ? (
-          <HomeOptions onSelect={(nextStep) => setStep(nextStep)} />
+          <HomeOptions
+            onSelect={(nextOperation) => {
+              setOperation(nextOperation);
+              setStep('face');
+            }}
+          />
         ) : (
           <LoanFlow
+            operation={operation}
             progress={currentProgress}
             step={step}
             onFaceConfirmed={() => setStep('rfid')}
@@ -122,7 +131,7 @@ function Header({ step, onHome }: { step: TotemStep; onHome: () => void }) {
   );
 }
 
-function HomeOptions({ onSelect }: { onSelect: (step: TotemStep) => void }) {
+function HomeOptions({ onSelect }: { onSelect: (operation: Operation) => void }) {
   return (
     <View style={styles.content}>
       <View style={styles.hero}>
@@ -158,18 +167,22 @@ function HomeOptions({ onSelect }: { onSelect: (step: TotemStep) => void }) {
 }
 
 function LoanFlow({
+  operation,
   progress,
   step,
   onFaceConfirmed,
   onBookRead,
   onHome,
 }: {
+  operation: Operation;
   progress: number;
   step: TotemStep;
   onFaceConfirmed: () => void;
   onBookRead: () => void;
   onHome: () => void;
 }) {
+  const isReturn = operation === 'return';
+
   return (
     <View style={styles.content}>
       <ProgressIndicator current={progress} />
@@ -179,7 +192,7 @@ function LoanFlow({
           icon="face-recognition"
           eyebrow="Etapa 1 de 3"
           title="Reconhecimento facial"
-          description="Posicione o rosto no centro da câmera para confirmar sua identidade antes do empréstimo."
+          description={`Posicione o rosto no centro da câmera para confirmar sua identidade antes ${isReturn ? 'da devolução' : 'do empréstimo'}.`}
           status="Câmera pronta para validação"
           primaryLabel="Confirmar reconhecimento"
           onPrimary={onFaceConfirmed}
@@ -196,7 +209,7 @@ function LoanFlow({
           icon="radio-tower"
           eyebrow="Etapa 2 de 3"
           title="Leitura RFID do livro"
-          description="Aproxime o livro do leitor RFID para localizar a etiqueta e preparar o registro de empréstimo."
+          description={`Aproxime o livro do leitor RFID para localizar a etiqueta e preparar o registro de ${isReturn ? 'devolução' : 'empréstimo'}.`}
           status="Leitor RFID aguardando aproximação"
           primaryLabel="Simular leitura RFID"
           onPrimary={onBookRead}
@@ -210,7 +223,7 @@ function LoanFlow({
         </ActionPanel>
       ) : null}
 
-      {step === 'confirmation' ? <ConfirmationPanel onHome={onHome} /> : null}
+      {step === 'confirmation' ? <ConfirmationPanel operation={operation} onHome={onHome} /> : null}
     </View>
   );
 }
@@ -285,15 +298,27 @@ function ActionPanel({
   );
 }
 
-function ConfirmationPanel({ onHome }: { onHome: () => void }) {
+function ConfirmationPanel({
+  operation,
+  onHome,
+}: {
+  operation: Operation;
+  onHome: () => void;
+}) {
+  const isReturn = operation === 'return';
+
   return (
     <View style={styles.panel}>
       <View style={styles.successBadge}>
         <MaterialCommunityIcons name="check-circle-outline" size={58} color={cps.success} />
       </View>
-      <Text style={styles.confirmTitle}>Empréstimo confirmado</Text>
+      <Text style={styles.confirmTitle}>
+        {isReturn ? 'Devolução confirmada' : 'Empréstimo confirmado'}
+      </Text>
       <Text style={styles.confirmDescription}>
-        O registro foi concluído e o livro já consta como emprestado para o usuário identificado.
+        {isReturn
+          ? 'O registro foi concluído e o livro já consta como devolvido no acervo da biblioteca.'
+          : 'O registro foi concluído e o livro já consta como emprestado para o usuário identificado.'}
       </Text>
 
       <View style={styles.summary}>
@@ -303,7 +328,11 @@ function ConfirmationPanel({ onHome }: { onHome: () => void }) {
         <SummaryRow label="Livro" value={book.title} />
         <SummaryRow label="Autor" value={book.author} />
         <SummaryRow label="Etiqueta RFID" value={book.rfid} />
-        <SummaryRow label="Devolução prevista" value={book.dueDate} highlight />
+        <SummaryRow
+          label={isReturn ? 'Status' : 'Devolução prevista'}
+          value={isReturn ? 'Devolvido com sucesso' : book.dueDate}
+          highlight
+        />
       </View>
 
       <PrimaryButton label="Voltar ao início" onPress={onHome} icon="home-outline" />
